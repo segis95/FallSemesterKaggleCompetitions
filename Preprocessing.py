@@ -9,13 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
-get_ipython().magic(u'matplotlib inline')
+#get_ipython().magic(u'matplotlib inline')
+
 
 
 # In[60]:
 
-train = pd.read_csv('train.csv')
-test = pd.read_csv('test.csv')
+train = pd.read_csv('../data/train.csv')
+test = pd.read_csv('../data/test.csv')
 
 train = train.drop('id', axis=1)
 test = test.drop('id', axis=1)
@@ -26,6 +27,7 @@ train_x = train.drop('target', axis = 1)
 categorial = []
 binary = []
 continues = []
+integer = []
 
 for f in train_x.columns:         
     # Defining the level
@@ -36,8 +38,9 @@ for f in train_x.columns:
     elif train[f].dtype == float:
         continues.append(f)
     else:# train[f].dtype == int:
-        categorial.append(f)
-        
+        integer.append(f)
+
+# Target based encoding
 for c in categorial:
     temp = pd.concat([pd.Series(train_y), pd.Series(train_x[c])],axis = 1)
     freqs = temp.groupby(by = c).agg(["mean"])
@@ -85,9 +88,7 @@ np.isnan(train_x).sum(axis = 0)
 
 
 # In[3]:
-
-ca
-    unique, counts = np.unique(x, return_counts=True)
+unique, counts = np.unique(x, return_counts=True)
 
 
 # In[ ]:

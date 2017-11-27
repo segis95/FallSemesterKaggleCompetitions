@@ -9,8 +9,12 @@ import sklearn as sc
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from sklearn.preprocessing import Imputer
 
-get_ipython().run_line_magic('matplotlib', 'inline')
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+#get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 # We use xgboost as the principal alg
@@ -25,9 +29,9 @@ import xgboost as xgb
 
 # In[ ]:
 
-
-train = pd.read_csv('train.csv')
-test = pd.read_csv('test.csv')
+print("Loading files...")
+train = pd.read_csv('../data/train.csv')
+test = pd.read_csv('../data/test.csv')
 test_ids = test["id"]
 
 train = train.drop('id', axis=1)
@@ -39,6 +43,7 @@ train_x = train.drop('target', axis = 1)
 categorial = []
 binary = []
 continues = []
+integer = []
 
 for f in train_x.columns:         
     # Defining the level
@@ -49,8 +54,17 @@ for f in train_x.columns:
     elif train[f].dtype == float:
         continues.append(f)
     else:# train[f].dtype == int:
-        categorial.append(f)
-        
+        integer.append(f)
+
+print("Filling missing values...")
+mean_imp = Imputer(missing_values=-1, strategy='mean', axis=0)
+mode_imp = Imputer(missing_values=-1, strategy='most_frequent', axis=0)
+train_x['ps_reg_03'] = mean_imp.fit_transform(train[['ps_reg_03']]).ravel()
+train_x['ps_car_12'] = mean_imp.fit_transform(train[['ps_car_12']]).ravel()
+train_x['ps_car_14'] = mean_imp.fit_transform(train[['ps_car_14']]).ravel()
+train_x['ps_car_11'] = mode_imp.fit_transform(train[['ps_car_11']]).ravel()
+
+print("Target-based encoding categorical variables...")
 for c in categorial:
     temp = pd.concat([pd.Series(train_y), pd.Series(train_x[c])],axis = 1)
     freqs = temp.groupby(by = c).agg(["mean"])
@@ -66,6 +80,24 @@ for c in categorial:
     test[c] = K
     train_x[c] = L
 
+#%% Feature selection
+    
+def scale_and_pca(train_data, test_data):
+    print("Scaling...")
+    scaler = StandardScaler()
+    pca = PCA(n_components = 0.95, svd_solver = 'full', whiten = True)
+    
+    train_data = scaler.fit_transform(train_data)
+    test_data = scaler.fit_transform(test_data)
+    
+    print("Performing PCA...")
+    train_data = pca.fit_transform(train_data)
+    test_data = pca.transform(test_data)
+    print("New train size "+str(train_data.shape))
+    print("New test size "+str(test_data.shape))
+    return pd.DataFrame(train_data), pd.DataFrame(test_data)
+
+train_x, test = scale_and_pca(train_x, test)
 
 # We prepare and train model using the xgboost alg
 
@@ -97,8 +129,9 @@ evallist  = [(dtrain,'eval'), (dtrain,'train')]
 
 # In[18]:
 
+print("Boosted trees. Starting...")
 
-model=xgb.train(param, dtrain, 963, evallist, early_stopping_rounds=100, maximize=True, verbose_eval=9)
+model=xgb.train(param, dtrain, 963, evallist, early_stopping_rounds=100, maximize=True, verbose_eval=50)
 
 
 # We build a prediction based on our model
@@ -130,3 +163,4 @@ res.columns = ['id', 'target']
 
 res.to_csv('submit.csv',index = False)
 
+print("End...")
